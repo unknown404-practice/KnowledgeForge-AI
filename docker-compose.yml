@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  knowledgeforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: knowledgeforge_ui
+    ports:
+      - "8501:8501"
+    volumes:
+      # Mount databases and models to persist data and prevent large builds
+      - ./database:/app/database
+      - ./.faiss_db:/app/.faiss_db
+      - ./models_cache:/app/models_cache
+      - ./data:/app/data
+    environment:
+      # Route HuggingFace caches to our persistent, permissioned volume
+      - HF_HOME=/app/models_cache
+      - SENTENCE_TRANSFORMERS_HOME=/app/models_cache
+      - HOME=/app
+      - STREAMLIT_GATHER_USAGE_STATS=false
+      # Use host.docker.internal to allow the Docker container to reach Ollama running natively on the host machine
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    restart: unless-stopped

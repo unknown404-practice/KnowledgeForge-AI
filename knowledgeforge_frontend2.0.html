@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnowledgeForge AI — Local Enterprise RAG</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+/* ========================================
+   Design Tokens
+   ======================================== */
+:root {
+    --bg-deep: oklch(0.065 0.012 150);
+    --bg-base: oklch(0.09 0.015 150);
+    --bg-surface: oklch(0.12 0.018 150);
+    --bg-elevated: oklch(0.16 0.02 150);
+    --bg-overlay: oklch(0.065 0.012 150 / 0.92);
+    --border: oklch(0.24 0.025 150);
+    --border-bright: oklch(0.35 0.04 150);
+    --green: oklch(0.78 0.16 145);
+    --green-dim: oklch(0.55 0.10 145);
+    --green-bright: oklch(0.96 0.02 260);
+    --green-bg: oklch(0.78 0.16 145 / 0.10);
+    --green-bg-strong: oklch(0.78 0.16 145 / 0.18);
+    --amber: oklch(0.80 0.14 85);
+    --amber-dim: oklch(0.55 0.10 85);
+    --amber-bg: oklch(0.80 0.14 85 / 0.10);
+    --red: oklch(0.65 0.22 25);
+    --red-bg: oklch(0.65 0.22 25 / 0.10);
+    --cyan: oklch(0.75 0.10 210);
+    --cyan-bg: oklch(0.75 0.10 210 / 0.10);
+    --text: oklch(0.95 0.01 260);
+    --text-dim: oklch(0.65 0.02 260);
+    --text-muted: oklch(0.58 0.02 260);
+    --glow: 0 0 8px oklch(0.78 0.16 145 / 0.25);
+    --glow-strong: 0 0 16px oklch(0.78 0.16 145 / 0.35);
+    --shadow: 0 2px 12px oklch(0 0 0 / 0.5);
+    --font-display: 'VT323', monospace;
+    --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+    --dur: 120ms;
+    --ease: linear;
+}
+/* ========================================
+   Reset & Base
+   ======================================== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{font-size:15px}
+body{font-family:var(--font-mono);font-size:1rem;line-height:1.55;color:var(--text);background:var(--bg-deep);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+::selection{background:oklch(0.78 0.16 145 / 0.3);color:var(--green-bright)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg-deep)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:0}
+::-webkit-scrollbar-thumb:hover{background:var(--green-dim)}
+.hidden{display:none!important}
+/* ========================================
+   Scanline Overlay (CRT Effect)
+   ======================================== */
+body::after{
+    content:'';
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:9999;
+    background:repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        oklch(0 0 0 / 0.06) 2px,
+        oklch(0 0 0 / 0.06) 4px
+    );
+    mix-blend-mode:multiply;
+}
+/* ========================================
+   App Shell
+   ======================================== */
+.app{display:flex;height:100vh;width:100vw}
+/* ========================================
+   Sidebar
+   ======================================== */
+.sidebar{
+    width:260px;
+    background:var(--bg-base);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    flex-shrink:0;
+    z-index:10;
+    position:relative;
+}
+.sidebar::after{
+    content:'';
+    position:absolute;
+    top:0;right:0;bottom:0;
+    width:1px;
+    background:var(--green);
+    opacity:0.15;
+    box-shadow:0 0 8px oklch(0.78 0.16 145 / 0.2);
+}
+.sidebar-header{
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+}
+.logo-line{
+    font-family:var(--font-display);
+    font-size:1.1rem;
+    color:var(--green);
+    text-shadow:0 0 10px oklch(0.78 0.16 145 / 0.4);
+    white-space:pre;
+    line-height:1.15;
+    margin-bottom:6px;
+}
+.version-line{
+    font-family:var(--font-mono);
+    font-size:0.7rem;
+    color:var(--text-dim);
+    letter-spacing:0.5px;
+}
+.sidebar-nav{
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+}
+.nav-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 16px;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:0.875rem;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+    text-align:left;
+    width:100%;
+    border-left:2px solid transparent;
+}
+.nav-item:hover{
+    background:var(--bg-surface);
+    color:var(--text);
+}
+.nav-item.active{
+    background:var(--green-bg);
+    color:var(--green);
+    border-left-color:var(--green);
+}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:0.7}
+.nav-item.active svg{opacity:1}
+.nav-badge{
+    margin-left:auto;
+    font-size:0.7rem;
+    color:var(--text-muted);
+}
+.nav-key{
+    font-size:0.65rem;
+    color:var(--text-muted);
+    margin-left:auto;
+    opacity:0.5;
+}
+/* ========================================
+   Conversation List
+   ======================================== */
+.sidebar-content{flex:1;overflow-y:auto;padding:8px 0}
+.conv-header{
+    font-size:0.7rem;
+    color:var(--text-muted);
+    padding:4px 16px 8px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    text-transform:uppercase;
+    letter-spacing:1px;
+}
+.new-conv-btn{
+    background:transparent;
+    border:1px dashed var(--border);
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:0.7rem;
+    padding:2px 8px;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+}
+.new-conv-btn:hover{
+    border-color:var(--green);
+    color:var(--green);
+}
+.conv-list{display:flex;flex-direction:column;gap:1px}
+.conv-item{
+    padding:8px 16px;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    position:relative;
+    border-left:2px solid transparent;
+}
+.conv-item:hover{background:var(--bg-surface)}
+.conv-item.active{
+    background:var(--green-bg);
+    border-left-color:var(--green);
+}
+.conv-title{
+    font-size:0.8125rem;
+    color:var(--text-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.conv-item.active .conv-title{color:var(--green)}
+.conv-time{font-size:0.65rem;color:var(--text-muted)}
+.conv-delete{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    background:transparent;border:none;color:var(--text-muted);
+    cursor:pointer;padding:2px;opacity:0;transition:opacity var(--dur);
+}
+.conv-item:hover .conv-delete{opacity:1}
+.conv-delete:hover{color:var(--red)}
+/* ========================================
+   Sidebar Footer
+   ======================================== */
+.sidebar-footer{
+    padding:10px 16px;
+    border-top:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.status-dot{
+    width:6px;height:6px;
+    background:var(--green);
+    box-shadow:0 0 6px var(--green);
+    animation:pulse 2s ease-in-out infinite;
+    flex-shrink:0;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-text{font-size:0.7rem;color:var(--text-dim)}
+.status-text strong{color:var(--green);font-weight:400}
+/* ========================================
+   Main Area
+   ======================================== */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.view{display:none;flex-direction:column;height:100%}
+.view.active{display:flex}
+/* ========================================
+   Topbar
+   ======================================== */
+.topbar{
+    height:44px;
+    border-bottom:1px solid var(--border);
+    padding:0 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--bg-base);
+    flex-shrink:0;
+    z-index:5;
+}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.topbar-title{
+    font-family:var(--font-display);
+    font-size:1.05rem;
+    color:var(--green);
+    text-shadow:0 0 6px oklch(0.78 0.16 145 / 0.2);
+}
+.topbar-subtitle{font-size:0.7rem;color:var(--text-muted)}
+.topbar-actions{display:flex;align-items:center;gap:6px}
+.topbar-btn{
+    display:flex;align-items:center;gap:5px;
+    padding:5px 10px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+}
+.topbar-btn:hover{border-color:var(--green-dim);color:var(--text)}
+.topbar-btn.active{
+    border-color:var(--green);
+    color:var(--green);
+    background:var(--green-bg);
+}
+.topbar-btn svg{width:12px;height:12px}
+/* ========================================
+   Chat View
+   ======================================== */
+.chat-area{
+    flex:1;overflow-y:auto;
+    padding:20px 10%;
+    display:flex;flex-direction:column;gap:14px;
+}
+.welcome{
+    text-align:center;
+    margin:auto 0;
+    padding:40px 20px;
+}
+.ascii-art{
+    font-family:var(--font-display);
+    font-size:0.85rem;
+    color:var(--green);
+    text-shadow:0 0 12px oklch(0.78 0.16 145 / 0.3);
+    white-space:pre;
+    line-height:1.2;
+    margin-bottom:16px;
+}
+.welcome-sub{
+    font-size:0.8rem;
+    color:var(--text-dim);
+    max-width:500px;
+    margin:0 auto 24px;
+    line-height:1.6;
+}
+.suggestions{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:8px;
+    max-width:680px;
+    margin:0 auto;
+}
+.suggestion{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    padding:14px;
+    text-align:left;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+}
+.suggestion:hover{
+    border-color:var(--green);
+    background:var(--bg-elevated);
+    box-shadow:var(--glow);
+}
+.suggestion-prompt{
+    font-family:var(--font-display);
+    font-size:0.8rem;
+    color:var(--green);
+    margin-bottom:6px;
+}
+.suggestion h4{
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    font-weight:400;
+    color:var(--text);
+    margin-bottom:3px;
+}
+.suggestion p{
+    font-size:0.7rem;
+    color:var(--text-dim);
+    line-height:1.4;
+}
+/* Messages */
+.message{
+    display:flex;gap:10px;max-width:780px;
+}
+.message.user{align-self:flex-end;flex-direction:row-reverse}
+.message.assistant{align-self:flex-start;width:100%}
+.msg-avatar{
+    width:28px;height:28px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    font-family:var(--font-display);
+    font-size:0.9rem;
+}
+.user .msg-avatar{color:var(--amber)}
+.assistant .msg-avatar{color:var(--green)}
+.bubble{
+    padding:12px 14px;
+    font-size:0.875rem;
+    line-height:1.6;
+    border:1px solid var(--border);
+}
+.user .bubble{
+    background:var(--bg-surface);
+    color:var(--amber);
+    border-color:var(--amber-dim);
+    max-width:85%;
+}
+.user .bubble::before{
+    content:'> ';
+    color:var(--amber-dim);
+}
+.assistant .bubble{
+    background:var(--bg-base);
+    color:var(--text);
+    border-color:var(--border);
+    width:100%;
+    position:relative;
+}
+.assistant .bubble::before{
+    content:'$ ';
+    color:var(--green-dim);
+    font-family:var(--font-display);
+}
+.assistant .bubble a{color:var(--green);text-decoration:none}
+.assistant .bubble a:hover{text-decoration:underline}
+.assistant .bubble code{
+    font-family:var(--font-mono);
+    font-size:0.85em;
+    background:oklch(0 0 0 / 0.3);
+    padding:1px 4px;
+    color:var(--cyan);
+}
+/* Pipeline (Terminal Style) */
+.pipeline{
+    display:flex;align-items:center;gap:0;
+    padding:8px 12px;
+    background:oklch(0 0 0 / 0.3);
+    border:1px solid var(--border);
+    margin:10px 0;
+    overflow-x:auto;
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+}
+.pipeline-step{
+    display:flex;align-items:center;gap:4px;
+    padding:3px 6px;
+    transition:all 200ms var(--ease);
+    white-space:nowrap;
+}
+.pipeline-step.active{color:var(--green);text-shadow:0 0 6px oklch(0.78 0.16 145 / 0.3)}
+.pipeline-step.done{color:var(--green-dim)}
+.pipeline-step.pending{color:var(--text-muted)}
+.step-marker{
+    font-family:var(--font-display);
+    font-size:0.85rem;
+}
+.pipeline-step.done .step-marker::after{content:' ✓'}
+.pipeline-step.active .step-marker{animation:blink 0.8s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.pipeline-connector{
+    color:var(--text-muted);
+    padding:0 2px;
+    font-family:var(--font-display);
+}
+.pipeline-connector.done{color:var(--green-dim)}
+.pipeline-connector.active{color:var(--green)}
+/* Source Panel */
+.source-panel{
+    margin-top:12px;
+    border-top:1px solid var(--border);
+    padding-top:8px;
+}
+.source-toggle{
+    display:flex;align-items:center;justify-content:space-between;
+    cursor:pointer;
+    font-size:0.8rem;
+    color:var(--text-dim);
+    padding:6px 8px;
+    background:oklch(0 0 0 / 0.2);
+    border:1px solid var(--border);
+    transition:all var(--dur) var(--ease);
+    width:100%;text-align:left;
+    font-family:var(--font-mono);
+}
+.source-toggle:hover{background:var(--bg-surface);color:var(--text)}
+.conf-badge{
+    font-family:var(--font-mono);
+    font-size:0.7rem;
+    padding:1px 6px;
+    background:var(--green-bg);
+    color:var(--green);
+    display:flex;align-items:center;gap:4px;
+}
+.sources{
+    margin-top:6px;
+    display:flex;flex-direction:column;gap:4px;
+}
+.source-card{
+    background:oklch(0 0 0 / 0.25);
+    border:1px solid var(--border);
+    padding:8px 10px;
+}
+.source-top{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:4px;
+}
+.source-file{
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+    color:var(--green);
+}
+.source-scores{
+    font-family:var(--font-mono);
+    font-size:0.7rem;
+    color:var(--text-muted);
+}
+.source-snippet{
+    font-family:var(--font-mono);
+    font-size:0.7rem;
+    color:var(--text-dim);
+    background:oklch(0 0 0 / 0.3);
+    padding:6px 8px;
+    border-left:2px solid var(--green-dim);
+    max-height:72px;
+    overflow-y:auto;
+    line-height:1.5;
+    white-space:pre-wrap;
+}
+/* Typing Indicator */
+.typing{
+    display:flex;align-items:center;gap:8px;
+    color:var(--green);
+    font-size:0.8rem;
+}
+.typing-cursor{
+    display:inline-block;
+    width:8px;height:1.1em;
+    background:var(--green);
+    animation:blink 0.7s step-end infinite;
+    vertical-align:middle;
+}
+/* Input Bar */
+.input-bar{
+    padding:12px 10%;
+    background:var(--bg-base);
+    border-top:1px solid var(--border);
+}
+.input-box{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    padding:4px 4px 4px 12px;
+    display:flex;align-items:flex-end;gap:6px;
+    transition:all var(--dur) var(--ease);
+}
+.input-box:focus-within{
+    border-color:var(--green);
+    box-shadow:var(--glow);
+}
+.input-prompt{
+    font-family:var(--font-display);
+    font-size:1.1rem;
+    color:var(--green);
+    padding-bottom:7px;
+    flex-shrink:0;
+    text-shadow:0 0 6px oklch(0.78 0.16 145 / 0.3);
+}
+.input-box textarea{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:0.875rem;
+    resize:none;
+    max-height:120px;
+    padding:8px 0;
+    outline:none;
+    line-height:1.5;
+}
+.input-box textarea::placeholder{color:var(--text-muted)}
+.input-actions{display:flex;align-items:center;gap:2px;padding-bottom:4px}
+.input-btn{
+    background:transparent;border:none;
+    color:var(--text-muted);
+    cursor:pointer;padding:6px;
+    transition:all var(--dur) var(--ease);
+    display:flex;align-items:center;justify-content:center;
+}
+.input-btn:hover{color:var(--text);background:var(--bg-elevated)}
+.send-btn{
+    background:var(--green-bg);
+    color:var(--green);
+    border:1px solid var(--green-dim);
+    padding:6px 12px;
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    cursor:pointer;
+    display:flex;align-items:center;gap:5px;
+    transition:all var(--dur) var(--ease);
+}
+.send-btn:hover{
+    background:var(--green);
+    color:var(--bg-deep);
+    box-shadow:var(--glow);
+}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+/* ========================================
+   Documents View
+   ======================================== */
+.doc-content{flex:1;overflow-y:auto;padding:16px 20px}
+.doc-toolbar{
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:14px;
+}
+.doc-search{
+    flex:1;display:flex;align-items:center;gap:6px;
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    padding:7px 10px;
+    transition:all var(--dur) var(--ease);
+}
+.doc-search:focus-within{border-color:var(--green);box-shadow:var(--glow)}
+.doc-search svg{width:13px;height:13px;color:var(--text-muted);flex-shrink:0}
+.doc-search input{
+    flex:1;background:transparent;border:none;
+    color:var(--text);font-family:var(--font-mono);
+    font-size:0.8rem;outline:none;
+}
+.doc-search input::placeholder{color:var(--text-muted)}
+.upload-btn{
+    display:flex;align-items:center;gap:5px;
+    padding:7px 12px;
+    border:1px solid var(--green-dim);
+    background:var(--green-bg);
+    color:var(--green);
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+    white-space:nowrap;
+}
+.upload-btn:hover{background:var(--green);color:var(--bg-deep)}
+.upload-btn svg{width:13px;height:13px}
+.doc-table-wrap{border:1px solid var(--border);overflow:hidden}
+.doc-table{width:100%;border-collapse:collapse}
+.doc-table th{
+    background:var(--bg-elevated);
+    padding:8px 12px;
+    font-size:0.7rem;
+    font-weight:400;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--text-muted);
+    text-align:left;
+    border-bottom:1px solid var(--border);
+}
+.doc-table td{
+    padding:8px 12px;
+    font-size:0.8rem;
+    color:var(--text);
+    border-bottom:1px solid var(--border);
+    vertical-align:middle;
+}
+.doc-table tr:last-child td{border-bottom:none}
+.doc-table tr:hover td{background:var(--bg-surface)}
+.doc-table input[type="checkbox"]{
+    accent-color:var(--green);
+    width:13px;height:13px;cursor:pointer;
+}
+.doc-type-badge{
+    font-family:var(--font-mono);
+    font-size:0.65rem;
+    padding:1px 5px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    border:1px solid var(--border);
+}
+.badge-pdf{color:var(--red);border-color:var(--red)}
+.badge-md{color:var(--cyan);border-color:var(--cyan)}
+.badge-docx{color:var(--green);border-color:var(--green)}
+.badge-py{color:var(--amber);border-color:var(--amber)}
+.badge-txt{color:var(--text-dim);border-color:var(--border)}
+.badge-csv{color:var(--cyan);border-color:var(--cyan)}
+.doc-status{display:flex;align-items:center;gap:5px;font-size:0.75rem}
+.doc-status-dot{
+    width:5px;height:5px;
+    flex-shrink:0;
+}
+.doc-status-dot.indexed{background:var(--green)}
+.doc-status-dot.indexing{background:var(--amber);animation:pulse 1.2s infinite}
+.doc-status-dot.error{background:var(--red)}
+.doc-delete-btn{
+    background:transparent;border:none;
+    color:var(--text-muted);cursor:pointer;
+    padding:3px;transition:all var(--dur);
+    display:flex;align-items:center;justify-content:center;
+}
+.doc-delete-btn:hover{color:var(--red);background:var(--red-bg)}
+.doc-empty{text-align:center;padding:60px 20px;color:var(--text-muted)}
+.doc-empty h3{font-size:0.9rem;color:var(--text-dim);margin-bottom:4px;font-weight:400}
+.doc-empty p{font-size:0.8rem}
+/* Drop overlay */
+.drop-overlay{
+    position:fixed;inset:0;
+    background:oklch(0.065 0.012 150 / 0.94);
+    z-index:200;display:none;
+    align-items:center;justify-content:center;
+}
+.drop-overlay.active{display:flex}
+.drop-overlay-inner{
+    border:2px dashed var(--green);
+    padding:50px 70px;
+    text-align:center;
+    background:var(--green-bg);
+}
+.drop-overlay-inner svg{color:var(--green);margin-bottom:10px}
+.drop-overlay-inner h3{
+    font-family:var(--font-display);
+    font-size:1.2rem;
+    color:var(--green);
+    margin-bottom:4px;
+}
+.drop-overlay-inner p{color:var(--text-dim);font-size:0.8rem}
+/* ========================================
+   Analytics View
+   ======================================== */
+.analytics-content{flex:1;overflow-y:auto;padding:16px 20px}
+.stat-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
+    margin-bottom:18px;
+}
+.stat-card{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    padding:14px;
+    transition:border-color var(--dur);
+}
+.stat-card:hover{border-color:var(--green-dim)}
+.stat-card-value{
+    font-family:var(--font-display);
+    font-size:2rem;
+    color:var(--green);
+    line-height:1;
+    margin-bottom:4px;
+    text-shadow:0 0 8px oklch(0.78 0.16 145 / 0.2);
+}
+.stat-card-label{font-size:0.7rem;color:var(--text-dim)}
+.stat-card-change{font-size:0.65rem;margin-top:4px}
+.stat-card-change.up{color:var(--green-dim)}
+.stat-card-change.down{color:var(--red)}
+.analytics-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+}
+@media(max-width:900px){.analytics-grid{grid-template-columns:1fr}}
+.chart-card{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    padding:14px;
+}
+.chart-card h3{
+    font-family:var(--font-display);
+    font-size:1rem;
+    color:var(--green);
+    margin-bottom:12px;
+    text-shadow:0 0 4px oklch(0.78 0.16 145 / 0.15);
+}
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-label{
+    font-size:0.7rem;
+    color:var(--text-dim);
+    width:40px;flex-shrink:0;
+    text-align:right;
+}
+.bar-track{
+    flex:1;height:6px;
+    background:oklch(0 0 0 / 0.3);
+    overflow:hidden;
+}
+.bar-fill{height:100%;transition:width 500ms var(--ease)}
+.bar-fill.pdf{background:var(--red)}
+.bar-fill.md{background:var(--cyan)}
+.bar-fill.docx{background:var(--green)}
+.bar-fill.py{background:var(--amber)}
+.bar-fill.other{background:var(--text-muted)}
+.bar-count{
+    font-size:0.65rem;
+    color:var(--text-muted);
+    width:20px;
+}
+.activity-list{display:flex;flex-direction:column;gap:0}
+.activity-item{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 0;
+    border-bottom:1px solid var(--border);
+}
+.activity-item:last-child{border-bottom:none}
+.activity-icon{
+    width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    font-family:var(--font-display);
+    font-size:0.8rem;
+}
+.activity-icon.query{color:var(--green)}
+.activity-icon.upload{color:var(--cyan)}
+.activity-icon.delete{color:var(--red)}
+.activity-text{flex:1;font-size:0.8rem;color:var(--text)}
+.activity-time{font-size:0.65rem;color:var(--text-muted);white-space:nowrap}
+/* ========================================
+   Settings View
+   ======================================== */
+.settings-content{flex:1;overflow-y:auto;padding:16px 20px;max-width:640px}
+.settings-section{margin-bottom:24px}
+.settings-section h3{
+    font-family:var(--font-display);
+    font-size:1rem;
+    color:var(--green);
+    margin-bottom:12px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--border);
+}
+.setting-row{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.setting-label{
+    display:flex;justify-content:space-between;
+    font-size:0.8rem;
+    color:var(--text);
+}
+.setting-value{
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    color:var(--green);
+}
+.setting-hint{font-size:0.65rem;color:var(--text-muted)}
+.setting-slider{
+    width:100%;height:3px;
+    -webkit-appearance:none;appearance:none;
+    background:var(--bg-elevated);
+    outline:none;
+}
+.setting-slider::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px;height:14px;
+    background:var(--green);
+    cursor:pointer;
+    border:2px solid var(--bg-surface);
+    box-shadow:0 0 0 1px var(--green);
+}
+.setting-slider::-webkit-slider-thumb:hover{
+    box-shadow:0 0 0 2px oklch(0.78 0.16 145 / 0.35);
+}
+.setting-slider::-moz-range-thumb{
+    width:14px;height:14px;
+    background:var(--green);
+    cursor:pointer;
+    border:2px solid var(--bg-surface);
+}
+.setting-toggle{
+    display:flex;align-items:center;gap:8px;
+    cursor:pointer;
+}
+.toggle-track{
+    width:34px;height:18px;
+    background:var(--bg-elevated);
+    border:1px solid var(--border);
+    position:relative;
+    transition:all var(--dur) var(--ease);
+}
+.toggle-track::after{
+    content:'';position:absolute;
+    top:2px;left:2px;
+    width:12px;height:12px;
+    background:var(--text-muted);
+    transition:all var(--dur) var(--ease);
+}
+.toggle-track.on{background:var(--green-bg);border-color:var(--green)}
+.toggle-track.on::after{left:18px;background:var(--green)}
+.toggle-label{font-size:0.8rem;color:var(--text)}
+.setting-select{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    padding:7px 10px;
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    outline:none;
+    cursor:pointer;
+    width:100%;
+    transition:border-color var(--dur);
+}
+.setting-select:focus{border-color:var(--green)}
+.setting-select option{background:var(--bg-surface)}
+.danger-zone{
+    margin-top:28px;
+    padding-top:16px;
+    border-top:1px solid var(--red-bg);
+}
+.danger-zone h3{color:var(--red);border-bottom-color:var(--red-bg)}
+.danger-btn{
+    padding:9px 14px;
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    cursor:pointer;
+    transition:all var(--dur) var(--ease);
+    border:1px solid var(--red);
+    background:var(--red-bg);
+    color:var(--red);
+    width:100%;
+}
+.danger-btn:hover{background:oklch(0.65 0.22 25 / 0.2);border-color:var(--red)}
+/* ========================================
+   Command Palette
+   ======================================== */
+.cmd-overlay{
+    position:fixed;inset:0;
+    background:oklch(0 0 0 / 0.7);
+    z-index:300;display:none;
+    align-items:flex-start;justify-content:center;
+    padding-top:20vh;
+}
+.cmd-overlay.active{display:flex}
+.cmd-palette{
+    background:var(--bg-base);
+    border:1px solid var(--green-dim);
+    width:460px;max-width:90vw;
+    box-shadow:var(--glow-strong), var(--shadow);
+    overflow:hidden;
+}
+.cmd-input-wrap{
+    display:flex;align-items:center;gap:8px;
+    padding:10px 14px;
+    border-bottom:1px solid var(--border);
+}
+.cmd-input-wrap .prompt{
+    font-family:var(--font-display);
+    font-size:1rem;
+    color:var(--green);
+    text-shadow:0 0 6px oklch(0.78 0.16 145 / 0.3);
+}
+.cmd-input{
+    flex:1;background:transparent;border:none;
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:0.875rem;outline:none;
+}
+.cmd-input::placeholder{color:var(--text-muted)}
+.cmd-list{max-height:300px;overflow-y:auto;padding:4px}
+.cmd-group{
+    font-size:0.65rem;
+    color:var(--text-muted);
+    padding:6px 10px 3px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+}
+.cmd-item{
+    display:flex;align-items:center;gap:8px;
+    padding:7px 10px;
+    cursor:pointer;
+    transition:all 60ms;
+}
+.cmd-item:hover,.cmd-item.selected{background:var(--green-bg)}
+.cmd-item svg{width:12px;height:12px;color:var(--text-muted);flex-shrink:0}
+.cmd-item:hover svg,.cmd-item.selected svg{color:var(--green)}
+.cmd-item-text{flex:1;font-size:0.8rem;color:var(--text)}
+.cmd-item-shortcut{
+    font-size:0.7rem;
+    color:var(--text-muted);
+    font-family:var(--font-mono);
+}
+/* ========================================
+   Toast
+   ======================================== */
+.toast-container{
+    position:fixed;bottom:16px;right:16px;
+    z-index:400;
+    display:flex;flex-direction:column;gap:6px;
+    pointer-events:none;
+}
+.toast{
+    pointer-events:auto;
+    display:flex;align-items:center;gap:8px;
+    padding:8px 14px;
+    background:var(--bg-elevated);
+    border:1px solid var(--border);
+    box-shadow:var(--shadow);
+    font-size:0.8rem;
+    color:var(--text);
+    animation:toastIn 200ms var(--ease);
+    min-width:220px;max-width:360px;
+}
+.toast.success{border-color:var(--green)}
+.toast.error{border-color:var(--red)}
+.toast.info{border-color:var(--amber)}
+.toast-icon{width:16px;height:16px;flex-shrink:0}
+.toast.success .toast-icon{color:var(--green)}
+.toast.error .toast-icon{color:var(--red)}
+.toast.info .toast-icon{color:var(--amber)}
+.toast-msg{flex:1}
+.toast-close{
+    background:transparent;border:none;
+    color:var(--text-muted);cursor:pointer;
+    padding:2px;display:flex;transition:color var(--dur);
+}
+.toast-close:hover{color:var(--text)}
+@keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+/* ========================================
+   Reduced Motion
+   ======================================== */
+@media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{
+        animation-duration:.01ms!important;
+        animation-iteration-count:1!important;
+        transition-duration:.01ms!important;
+    }
+    body::after{display:none}
+    .status-dot{animation:none}
+}
+/* ========================================
+   Responsive
+   ======================================== */
+@media(max-width:900px){
+    .sidebar{width:220px}
+    .chat-area{padding:16px 6%}
+    .input-bar{padding:10px 6%}
+    .analytics-grid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+    .sidebar{
+        position:fixed;left:-260px;top:0;
+        height:100%;z-index:50;
+        transition:left 200ms var(--ease);
+        width:260px;
+    }
+    .sidebar.open{left:0}
+    .mobile-toggle{display:flex!important}
+    .chat-area{padding:14px}
+    .input-bar{padding:8px 14px}
+    .suggestions{grid-template-columns:1fr}
+    .stat-cards{grid-template-columns:1fr 1fr}
+}
+.mobile-toggle{display:none;background:transparent;border:none;color:var(--text);cursor:pointer;padding:5px}
+    </style>
+</head>
+<body>
+<!-- ========================================
+     Command Palette
+     ======================================== -->
+<div class="cmd-overlay" id="cmd-overlay">
+    <div class="cmd-palette">
+        <div class="cmd-input-wrap">
+            <span class="prompt">&gt;</span>
+            <input class="cmd-input" id="cmd-input" placeholder="type a command..." autocomplete="off">
+        </div>
+        <div class="cmd-list" id="cmd-list"></div>
+    </div>
+</div>
+
+<!-- ========================================
+     Toast Container
+     ======================================== -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ========================================
+     Drop Overlay
+     ======================================== -->
+<div class="drop-overlay" id="drop-overlay">
+    <div class="drop-overlay-inner">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h3>// DROP FILES TO UPLOAD</h3>
+        <p>PDF, DOCX, TXT, MD, CSV, PY</p>
+    </div>
+</div>
+
+<!-- ========================================
+     App Shell
+     ======================================== -->
+<div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-line">┌─ KnowledgeForge</div>
+            <div class="version-line">│ v2.0 // local enterprise rag</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-view="chat" onclick="switchView('chat')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                chat
+                <span class="nav-key">^1</span>
+            </button>
+            <button class="nav-item" data-view="documents" onclick="switchView('documents')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                documents
+                <span class="nav-badge" id="nav-doc-count">4</span>
+            </button>
+            <button class="nav-item" data-view="analytics" onclick="switchView('analytics')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                analytics
+                <span class="nav-key">^3</span>
+            </button>
+            <button class="nav-item" data-view="settings" onclick="switchView('settings')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.26.46.4.97.41 1.49V12"/></svg>
+                settings
+                <span class="nav-key">^4</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-content" id="sidebar-content"></div>
+
+        <div class="sidebar-footer">
+            <div class="status-dot"></div>
+            <div class="status-text"><strong>engine online</strong> // <span id="model-label">gemma 2 2b</span></div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+        <!-- Chat View -->
+        <div class="view active" id="view-chat">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div>
+                        <div class="topbar-title" id="chat-title">new conversation</div>
+                        <div class="topbar-subtitle" id="chat-subtitle">0 messages</div>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <button class="topbar-btn active" id="toggle-rerank" onclick="toggleSetting('reranker',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        reranker
+                    </button>
+                    <button class="topbar-btn active" id="toggle-hybrid" onclick="toggleSetting('hybrid',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                        hybrid rrf
+                    </button>
+                    <button class="topbar-btn" onclick="window.location.reload()" title="Refresh App">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        refresh
+                    </button>
+                    <button class="topbar-btn" onclick="switchView('settings')" title="Settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    </button>
+                </div>
+            </header>
+            <div class="chat-area" id="chat-area"></div>
+            <footer class="input-bar">
+                <div class="input-box">
+                    <span class="input-prompt">&gt;</span>
+                    <textarea id="query-input" rows="1" placeholder="ask anything about your knowledge base..." onkeydown="handleInputKey(event)"></textarea>
+                    <div class="input-actions">
+                        <button class="input-btn" title="Clear chat" onclick="clearCurrentChat()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </button>
+                        <button class="send-btn" id="send-btn" onclick="sendQuery()">
+                            send
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+        <!-- Documents View -->
+        <div class="view" id="view-documents">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div>
+                        <div class="topbar-title">knowledge base</div>
+                        <div class="topbar-subtitle" id="doc-count-label">4 documents indexed</div>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <button class="topbar-btn" onclick="reindexAll()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        re-index
+                    </button>
+                </div>
+            </header>
+            <div class="doc-content" id="doc-content"></div>
+        </div>
+
+        <!-- Analytics View -->
+        <div class="view" id="view-analytics">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div class="topbar-title">analytics</div>
+                </div>
+            </header>
+            <div class="analytics-content" id="analytics-content"></div>
+        </div>
+
+        <!-- Settings View -->
+        <div class="view" id="view-settings">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div class="topbar-title">settings</div>
+                </div>
+            </header>
+            <div class="settings-content" id="settings-content"></div>
+        </div>
+    </main>
+</div>
+
+<script>
+/* ========================================
+   Application State
+   ======================================== */
+let defaultApp = {
+    conversations: [{ id: 1, title: 'New Conversation', messages: [], created: Date.now() }],
+    activeConvId: 1,
+    nextConvId: 2,
+    documents: [],
+    nextDocId: 1,
+    view: 'chat',
+    settings: { chunkSize: 500, chunkOverlap: 50, topK: 10, rerankTopK: 3, reranker: true, hybrid: true, model: 'gemma-3-4b-native' },
+    activity: [],
+    queryCount: 0
+};
+
+let APP = {
+    conversations: [{ id: 1, title: 'New Conversation', messages: [], created: Date.now() }],
+    activeConvId: 1,
+    nextConvId: 2,
+    documents: [],
+    nextDocId: 1,
+    view: 'chat',
+    settings: { chunkSize: 500, chunkOverlap: 50, topK: 10, rerankTopK: 3, reranker: true, hybrid: true, model: 'gemma-3-4b-native' },
+    activity: [],
+    queryCount: 0
+};
+
+try {
+    const saved = localStorage.getItem('kf_app_state');
+    if (saved) {
+        const savedApp = JSON.parse(saved);
+        if (savedApp.settings) {
+            APP.settings = savedApp.settings; // Only keep settings, start completely fresh otherwise!
+        }
+    }
+} catch(e) {
+    console.error("Failed to load state", e);
+}
+
+function saveState() {
+    try {
+        localStorage.setItem('kf_app_state', JSON.stringify(APP));
+    } catch(e) {
+        console.error("Failed to save state", e);
+    }
+}
+
+// Fetch the actual source of truth from the Python backend
+window.addEventListener('pywebviewready', function() {
+    window.pywebview.api.get_database_status().then(res => {
+        if (res.success) {
+            APP.documents = res.documents;
+            APP.nextDocId = APP.documents.length + 1;
+            saveState();
+            if (APP.view === 'documents') renderDocuments();
+            renderAnalytics();
+        }
+    });
+});
+
+/* ========================================
+   Utility
+   ======================================== */
+function $(sel, ctx) { return (ctx || document).querySelector(sel) }
+function $$(sel, ctx) { return [...(ctx || document).querySelectorAll(sel)] }
+function getActiveConv() { return APP.conversations.find(c => c.id === APP.activeConvId) }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML }
+
+/* ========================================
+   Toast Notifications
+   ======================================== */
+function showToast(msg, type = 'info') {
+    const c = $('#toast-container');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    const icons = {
+        success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>',
+        error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
+        info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'
+    };
+    t.innerHTML = `${icons[type] || icons.info}<span class="toast-msg">${esc(msg)}</span><button class="toast-close" onclick="this.parentElement.remove()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
+    c.appendChild(t);
+    setTimeout(() => { if (t.parentElement) t.remove() }, 3500);
+}
+
+/* ========================================
+   View Management
+   ======================================== */
+function switchView(name) {
+    APP.view = name;
+    $$('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
+    $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+    $('#sidebar').classList.remove('open');
+    if (name === 'chat') {
+        $('#toggle-rerank').classList.toggle('active', APP.settings.reranker);
+        $('#toggle-hybrid').classList.toggle('active', APP.settings.hybrid);
+        renderSidebarConversations();
+    }
+    if (name === 'documents') renderDocuments();
+    if (name === 'analytics') renderAnalytics();
+    if (name === 'settings') renderSettings();
+}
+
+/* ========================================
+   Sidebar — Conversations
+   ======================================== */
+function renderSidebarConversations() {
+    const el = $('#sidebar-content');
+    el.innerHTML = `
+        <div class="conv-header">conversations<button class="new-conv-btn" onclick="createConversation()">+ new</button></div>
+        <div class="conv-list">
+            ${APP.conversations.map(c => `
+                <div class="conv-item ${c.id === APP.activeConvId ? 'active' : ''}" onclick="switchConversation(${c.id})">
+                    <span class="conv-title">${esc(c.title)}</span>
+                    <span class="conv-time">${c.messages.length} msg${c.messages.length !== 1 ? 's' : ''}</span>
+                    <button class="conv-delete" onclick="event.stopPropagation();deleteConversation(${c.id})" title="Delete">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function createConversation() {
+    const c = { id: APP.nextConvId++, title: 'New Conversation', messages: [], created: Date.now() };
+    APP.conversations.unshift(c);
+    APP.activeConvId = c.id;
+    renderSidebarConversations();
+    renderChat();
+    showToast('new conversation created', 'success');
+}
+
+function switchConversation(id) {
+    APP.activeConvId = id;
+    renderSidebarConversations();
+    renderChat();
+    saveState();
+}
+
+function deleteConversation(id) {
+    if (APP.conversations.length <= 1) { showToast('keep at least one conversation', 'error'); return; }
+    const idx = APP.conversations.findIndex(c => c.id === id);
+    if (idx === -1) return;
+    APP.conversations.splice(idx, 1);
+    if (APP.activeConvId === id) APP.activeConvId = APP.conversations[0].id;
+    renderSidebarConversations();
+    renderChat();
+    showToast('conversation deleted', 'info');
+}
+
+/* ========================================
+   Chat — Rendering
+   ======================================== */
+function renderChat() {
+    const conv = getActiveConv();
+    const area = $('#chat-area');
+    $('#chat-title').textContent = conv.title;
+    $('#chat-subtitle').textContent = `${conv.messages.length} message${conv.messages.length !== 1 ? 's' : ''}`;
+
+    if (conv.messages.length === 0) {
+        area.innerHTML = `
+            <div class="welcome">
+                <pre class="ascii-art">╔══════════════════════════════════════╗
+║  KnowledgeForge AI — RAG Engine     ║
+║  Local • Offline • Private          ║
+╚══════════════════════════════════════╝</pre>
+                <p class="welcome-sub">Hybrid BM25+Dense retrieval with BAAI Cross-Encoder reranking. All processing stays on your machine.</p>
+                <div class="suggestions">
+                    <div class="suggestion" onclick="sendQuickQuery('What are the 12 core architecture layers verified across the KnowledgeForge AI project?')">
+                        <div class="suggestion-prompt">&gt;_</div>
+                        <h4>Architecture Overview</h4>
+                        <p>6 modular testing layers and ChromaDB batching.</p>
+                    </div>
+                    <div class="suggestion" onclick="sendQuickQuery('How does the Hybrid BM25 + Dense RRF ranking combine scores?')">
+                        <div class="suggestion-prompt">&gt;_</div>
+                        <h4>Hybrid RRF Mechanics</h4>
+                        <p>Reciprocal rank fusion merges sparse and dense.</p>
+                    </div>
+                    <div class="suggestion" onclick="sendQuickQuery('How does the Cross-Encoder calculate confidence percentages?')">
+                        <div class="suggestion-prompt">&gt;_</div>
+                        <h4>Confidence Estimator</h4>
+                        <p>Raw logits to 0-100% confidence badges.</p>
+                    </div>
+                </div>
+            </div>`;
+        return;
+    }
+
+    area.innerHTML = conv.messages.map(m => m.role === 'user' ? userHTML(m.content) : assistantHTML(m.content, m.pipeline, m.sources)).join('');
+    area.scrollTop = area.scrollHeight;
+}
+
+function avatarLabel(user) {
+    return user ? '[u]' : '[k]';
+}
+
+function userHTML(text) {
+    return `<div class="message user"><div class="msg-avatar">${avatarLabel(true)}</div><div class="bubble">${esc(text)}</div></div>`;
+}
+
+function pipelineHTML(steps) {
+    if (!steps) return '';
+    return `<div class="pipeline">${steps.map((s, i) =>
+        `<div class="pipeline-step ${s.state}"><span class="step-marker">${s.icon}</span><span>${s.label}</span></div>${i < steps.length - 1 ? `<span class="pipeline-connector ${s.state === 'done' ? 'done' : s.state === 'active' ? 'active' : ''}">→</span>` : ''}`
+    ).join('')}</div>`;
+}
+
+function sourcesHTML(sources) {
+    if (!sources || sources.length === 0) return '';
+    return `<div class="source-panel">
+        <button class="source-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none'">
+            <span>[${sources.length}] retrieved sources</span>
+            <div class="conf-badge">99.9% confidence</div>
+        </button>
+        <div class="sources" style="display:flex">
+            ${sources.map(s => `<div class="source-card"><div class="source-top"><span class="source-file">${esc(s.file)}</span><span class="source-scores">CE: ${s.ce} | RRF: ${s.rrf}</span></div><div style="font-size: 0.8rem; color: #38bdf8; margin: 4px 0;"><b>Section:</b> ${esc(s.heading || 'General Context')}</div><div class="source-snippet">${esc(s.snippet)}</div></div>`).join('')}
+        </div>
+    </div>`;
+}
+
+function assistantHTML(text, pipeline, sources) {
+    return `<div class="message assistant"><div class="msg-avatar">${avatarLabel(false)}</div><div class="bubble">
+        <div style="white-space: pre-wrap;">${esc(text)}</div>
+        ${pipelineHTML(pipeline)}
+        ${sourcesHTML(sources)}
+    </div></div>`;
+}
+
+/* ========================================
+   Chat — Sending
+   ======================================== */
+function handleInputKey(e) {
+    if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); sendQuery(); }
+    if (e.key === 'Enter' && e.ctrlKey) { /* allow newline */ }
+}
+
+function sendQuickQuery(text) {
+    $('#query-input').value = text;
+    sendQuery();
+}
+
+function sendQuery() {
+    const input = $('#query-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const conv = getActiveConv();
+    conv.messages.push({ role: 'user', content: text });
+    if (conv.messages.length === 1) {
+        conv.title = text.length > 40 ? text.slice(0, 40) + '...' : text;
+        renderSidebarConversations();
+    }
+    saveState();
+
+    input.value = '';
+    input.style.height = 'auto';
+    $('#chat-title').textContent = conv.title;
+    $('#chat-subtitle').textContent = `${conv.messages.length} message${conv.messages.length !== 1 ? 's' : ''}`;
+
+    const area = $('#chat-area');
+    const welcome = $('.welcome', area);
+    if (welcome) welcome.remove();
+    area.insertAdjacentHTML('beforeend', userHTML(text));
+
+    // Typing indicator
+    const typingId = 'typing-' + Date.now();
+    area.insertAdjacentHTML('beforeend', `<div class="message assistant" id="${typingId}"><div class="msg-avatar">${avatarLabel(false)}</div><div class="bubble"><div class="typing"><span>retrieving & reranking</span><span class="typing-cursor"></span></div></div></div>`);
+    area.scrollTop = area.scrollHeight;
+
+    // Animate pipeline
+    const steps = [
+        { icon: 'Q', label: 'Query', state: 'pending' },
+        { icon: 'B', label: 'BM25', state: 'pending' },
+        { icon: 'D', label: 'Dense', state: 'pending' },
+        { icon: 'R', label: 'RRF', state: 'pending' },
+        { icon: 'CE', label: 'Rerank', state: 'pending' },
+        { icon: '✓', label: 'Done', state: 'pending' }
+    ];
+
+    let stepIdx = 0;
+    function advanceStep() {
+        if (stepIdx > 0) steps[stepIdx - 1].state = 'done';
+        if (stepIdx < steps.length) {
+            steps[stepIdx].state = 'active';
+            stepIdx++;
+            setTimeout(advanceStep, 180);
+        } else {
+            // Replace typing with response
+            const typingEl = document.getElementById(typingId);
+            if (typingEl) typingEl.remove();
+
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.send_query(text, APP.settings).then(response => {
+                    let responseText = response.success ? response.text.replace(/\n/g, '<br>') : `Error: ${response.error}`;
+                    let sources = response.success ? response.sources : [];
+                    
+                    conv.messages.push({ role: 'assistant', content: responseText, pipeline: steps, sources });
+                    APP.queryCount++;
+                    APP.activity.unshift({ type: 'query', text: `Queried: ${text.slice(0, 50)}${text.length > 50 ? '...' : ''}`, time: 'Just now' });
+                    area.insertAdjacentHTML('beforeend', assistantHTML(responseText, steps, sources));
+                    area.scrollTop = area.scrollHeight;
+                    saveState();
+                });
+            } else {
+                let responseText = `Cannot connect to Python backend! Please run the app via 'python app/desktop.py' to enable pywebview api integration.<br><br><b>Your Query:</b> ${esc(text)}`;
+                conv.messages.push({ role: 'assistant', content: responseText, pipeline: steps, sources: [] });
+                APP.queryCount++;
+                APP.activity.unshift({ type: 'query', text: `Mock Queried: ${text.slice(0, 50)}...`, time: 'Just now' });
+                area.insertAdjacentHTML('beforeend', assistantHTML(responseText, steps, []));
+                area.scrollTop = area.scrollHeight;
+                saveState();
+            }
+        }
+    }
+    advanceStep();
+}
+
+function clearCurrentChat() {
+    const conv = getActiveConv();
+    conv.messages = [];
+    conv.title = 'New Conversation';
+    renderSidebarConversations();
+    renderChat();
+    showToast('chat cleared', 'info');
+}
+
+/* ========================================
+   Documents — Rendering
+   ======================================== */
+function renderDocuments() {
+    const el = $('#doc-content');
+    const docs = APP.documents;
+    $('#doc-count-label').textContent = `${docs.length} document${docs.length !== 1 ? 's' : ''} indexed`;
+    $('#nav-doc-count').textContent = docs.length;
+
+    let html = `
+        <div class="doc-toolbar">
+            <div class="doc-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input placeholder="search documents..." oninput="filterDocuments(this.value)">
+            </div>
+            <button class="upload-btn" onclick="triggerNativeUpload()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                upload
+            </button>
+            <input type="file" id="file-input-global" style="display:none" multiple onchange="handleGlobalUpload(event)">
+        </div>
+    `;
+
+    if (docs.length === 0) {
+        html += `<div class="doc-empty" style="margin-top: 40px;"><h3>// no documents yet</h3><p>Click the upload button above to build your knowledge base.</p></div>`;
+    } else {
+        html += `
+        <div class="doc-table-wrap">
+            <table class="doc-table">
+                <thead><tr>
+                    <th style="width:36px"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+                    <th>name</th>
+                    <th style="width:60px">type</th>
+                    <th style="width:70px">chunks</th>
+                    <th style="width:90px">status</th>
+                    <th style="width:90px">added</th>
+                    <th style="width:36px"></th>
+                </tr></thead>
+                <tbody id="doc-tbody">
+                    ${docs.map(d => `<tr data-id="${d.id}">
+                        <td><input type="checkbox" class="doc-check" value="${d.id}"></td>
+                        <td>${esc(d.name)}</td>
+                        <td><span class="doc-type-badge badge-${d.ext}">${d.ext}</span></td>
+                        <td>${d.chunks}</td>
+                        <td><div class="doc-status"><span class="doc-status-dot ${d.status}"></span>${d.status}</div></td>
+                        <td style="font-size:0.7rem;color:var(--text-muted)">${d.added}</td>
+                        <td><button class="doc-delete-btn" onclick="deleteDocument(${d.id})" title="Remove"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    }
+    el.innerHTML = html;
+}
+
+function filterDocuments(q) {
+    const rows = $$('#doc-tbody tr');
+    const lower = q.toLowerCase();
+    rows.forEach(r => {
+        const name = r.children[1]?.textContent?.toLowerCase() || '';
+        r.style.display = name.includes(lower) ? '' : 'none';
+    });
+}
+
+function toggleSelectAll(cb) {
+    $$('.doc-check').forEach(c => c.checked = cb.checked);
+}
+
+function deleteDocument(id) {
+    if(confirm('Delete this document?')) {
+        const docToDelete = APP.documents.find(d => d.id === id);
+        if (!docToDelete) return;
+        
+        if (window.pywebview && window.pywebview.api) {
+            showToast('Deleting from database...', 'info');
+            window.pywebview.api.delete_document(docToDelete.name).then(res => {
+                if (res.success) {
+                    APP.documents = APP.documents.filter(d => d.id !== id);
+                    showToast('document permanently removed', 'success');
+                    renderDocuments();
+                    renderAnalytics();
+                    saveState();
+                } else {
+                    showToast('Failed to delete: ' + res.error, 'error');
+                }
+            });
+        } else {
+            APP.documents = APP.documents.filter(d => d.id !== id);
+            showToast('document removed (UI only)', 'success');
+            renderDocuments();
+            renderAnalytics();
+            saveState();
+        }
+    }
+}
+
+function handleGlobalUpload(e) { processFiles(e.target.files); e.target.value = ''; }
+
+function triggerNativeUpload() {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.open_upload_dialog) {
+        showToast("opening secure file dialog...", "info");
+        window.pywebview.api.open_upload_dialog().then(response => {
+            if (response.success && response.files && response.files.length > 0) {
+                response.files.forEach(filename => {
+                    const doc = {
+                        id: APP.nextDocId++,
+                        name: filename,
+                        ext: filename.split('.').pop().toLowerCase(),
+                        chunks: response.chunks,
+                        status: 'indexed',
+                        added: new Date().toISOString().slice(0, 10),
+                        content: ''
+                    };
+                    APP.documents.push(doc);
+                    showToast(`indexed ${filename} (${response.chunks} chunks)`, 'success');
+                    APP.activity.unshift({ type: 'upload', text: `Uploaded ${filename}`, time: 'Just now' });
+                });
+                saveState();
+                if (APP.view === 'documents') renderDocuments();
+                if (APP.view === 'analytics') renderAnalytics();
+            } else if (response.error) {
+                showToast(`Upload failed: ${response.error}`, "error");
+            }
+        });
+    } else {
+        document.getElementById('file-input-global').click();
+    }
+}
+
+/* ========================================
+   File Upload & Processing
+   ======================================== */
+function processFiles(files) {
+    if (!files || files.length === 0) return;
+    for (const file of files) {
+        const parts = file.name.split('.');
+        const ext = parts.length > 1 ? parts.pop().toLowerCase() : 'txt';
+        const doc = {
+            id: APP.nextDocId++,
+            name: file.name,
+            ext: ext,
+            chunks: 0,
+            status: 'indexing',
+            added: new Date().toISOString().slice(0, 10),
+            content: ''
+        };
+
+        // Read text-based files
+        if (['txt', 'md', 'csv', 'py'].includes(ext)) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                doc.content = ev.target.result;
+                doc.chunks = Math.max(1, Math.ceil(doc.content.length / 500));
+                doc.status = 'indexed';
+                showToast(`indexed ${file.name} (${doc.chunks} chunks)`, 'success');
+                APP.activity.unshift({ type: 'upload', text: `Uploaded ${file.name}`, time: 'Just now' });
+                saveState();
+                if (APP.view === 'documents') renderDocuments();
+                if (APP.view === 'analytics') renderAnalytics();
+            };
+            reader.readAsText(file);
+        } else {
+            // For binary files, estimate chunks from size
+            doc.chunks = Math.max(1, Math.ceil(file.size / 2000));
+            setTimeout(() => {
+                doc.status = 'indexed';
+                showToast(`indexed ${file.name} (${doc.chunks} chunks)`, 'success');
+                APP.activity.unshift({ type: 'upload', text: `Uploaded ${file.name}`, time: 'Just now' });
+                saveState();
+                if (APP.view === 'documents') renderDocuments();
+            }, 800);
+        }
+
+        APP.documents.unshift(doc);
+    }
+    saveState();
+    $('#nav-doc-count').textContent = APP.documents.length;
+    if (APP.view === 'documents') renderDocuments();
+    showToast(`${files.length} file${files.length > 1 ? 's' : ''} uploading...`, 'info');
+}
+
+/* ========================================
+   Global Drag & Drop
+   ======================================== */
+let dragCounter = 0;
+document.addEventListener('dragenter', e => { e.preventDefault(); dragCounter++; $('#drop-overlay').classList.add('active'); });
+document.addEventListener('dragleave', e => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; $('#drop-overlay').classList.remove('active'); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+    e.preventDefault();
+    dragCounter = 0;
+    $('#drop-overlay').classList.remove('active');
+    if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
+});
+
+/* ========================================
+   Analytics — Rendering
+   ======================================== */
+function renderAnalytics() {
+    const docs = APP.documents;
+    const totalChunks = docs.reduce((s, d) => s + d.chunks, 0);
+    const types = {};
+    docs.forEach(d => { types[d.ext] = (types[d.ext] || 0) + 1; });
+    const maxType = Math.max(1, ...Object.values(types));
+
+    const el = $('#analytics-content');
+    el.innerHTML = `
+        <div class="stat-cards">
+            <div class="stat-card"><div class="stat-card-value">${docs.length}</div><div class="stat-card-label">documents</div><div class="stat-card-change up">indexed</div></div>
+            <div class="stat-card"><div class="stat-card-value">${totalChunks}</div><div class="stat-card-label">vector chunks</div><div class="stat-card-change up">ready</div></div>
+            <div class="stat-card"><div class="stat-card-value">${APP.queryCount}</div><div class="stat-card-label">queries run</div><div class="stat-card-change up">this session</div></div>
+            <div class="stat-card"><div class="stat-card-value">${APP.conversations.length}</div><div class="stat-card-label">conversations</div><div class="stat-card-change up">active</div></div>
+        </div>
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <h3>document types</h3>
+                <div class="bar-chart">
+                    ${Object.entries(types).map(([ext, count]) => `
+                        <div class="bar-row">
+                            <span class="bar-label">${ext.toUpperCase()}</span>
+                            <div class="bar-track"><div class="bar-fill ${ext}" style="width:${(count / maxType) * 100}%"></div></div>
+                            <span class="bar-count">${count}</span>
+                        </div>
+                    `).join('')}
+                    ${docs.length === 0 ? '<div style="color:var(--text-muted);font-size:0.8rem;padding:6px 0">// no data yet</div>' : ''}
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>recent activity</h3>
+                <div class="activity-list">
+                    ${APP.activity.slice(0, 8).map(a => `
+                        <div class="activity-item">
+                            <div class="activity-icon ${a.type}">${a.type === 'query' ? 'Q' : a.type === 'upload' ? '+' : 'x'}</div>
+                            <span class="activity-text">${esc(a.text)}</span>
+                            <span class="activity-time">${a.time}</span>
+                        </div>
+                    `).join('')}
+                    ${APP.activity.length === 0 ? '<div style="color:var(--text-muted);font-size:0.8rem;padding:6px 0">// no activity yet</div>' : ''}
+                </div>
+            </div>
+        </div>`;
+}
+
+/* ========================================
+   Settings — Rendering
+   ======================================== */
+function renderSettings() {
+    const s = APP.settings;
+    const el = $('#settings-content');
+    el.innerHTML = `
+        <div class="settings-section">
+            <h3>// rag parameters</h3>
+            <div class="setting-row">
+                <div class="setting-label"><span>chunk_size (tokens)</span><span class="setting-value" id="sv-chunk">${s.chunkSize}</span></div>
+                <input type="range" class="setting-slider" min="100" max="1500" step="50" value="${s.chunkSize}" oninput="updateSetting('chunkSize',this.value);$('#sv-chunk').textContent=this.value">
+                <div class="setting-hint">larger chunks capture more context but reduce retrieval precision.</div>
+            </div>
+            <div class="setting-row">
+                <div class="setting-label"><span>chunk_overlap (tokens)</span><span class="setting-value" id="sv-overlap">${s.chunkOverlap}</span></div>
+                <input type="range" class="setting-slider" min="0" max="300" step="10" value="${s.chunkOverlap}" oninput="updateSetting('chunkOverlap',this.value);$('#sv-overlap').textContent=this.value">
+            </div>
+            <div class="setting-row">
+                <div class="setting-label"><span>dense_retrieval_top_k</span><span class="setting-value" id="sv-topk">${s.topK}</span></div>
+                <input type="range" class="setting-slider" min="3" max="50" step="1" value="${s.topK}" oninput="updateSetting('topK',this.value);$('#sv-topk').textContent=this.value">
+                <div class="setting-hint">number of candidates retrieved before reranking.</div>
+            </div>
+            <div class="setting-row">
+                <div class="setting-label"><span>cross_encoder_rerank_top_k</span><span class="setting-value" id="sv-rerank">${s.rerankTopK}</span></div>
+                <input type="range" class="setting-slider" min="1" max="10" step="1" value="${s.rerankTopK}" oninput="updateSetting('rerankTopK',this.value);$('#sv-rerank').textContent=this.value">
+                <div class="setting-hint">final number of sources returned to the LLM.</div>
+            </div>
+        </div>
+        <div class="settings-section">
+            <h3>// model configuration</h3>
+            <div class="setting-row">
+                <div class="setting-label"><span>llm_engine</span></div>
+                <select class="setting-select" onchange="updateSetting('model',this.value);$('#model-label').textContent=this.options[this.selectedIndex].text.split('(')[0].trim()">
+                    <option value="gemma-2-2b-native" ${s.model === 'gemma-2-2b-native' ? 'selected' : ''}>Deepset Gemma 2 2B Native (Offline)</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <div class="setting-label"><span>cross_encoder_reranker</span></div>
+                <div class="setting-toggle" onclick="toggleSetting('reranker');renderSettings()">
+                    <div class="toggle-track ${s.reranker ? 'on' : ''}"></div>
+                    <span class="toggle-label">${s.reranker ? '[enabled]' : '[disabled]'}</span>
+                </div>
+                <div class="setting-hint">re-score retrieved candidates with BAAI/bge-reranker-base.</div>
+            </div>
+            <div class="setting-row">
+                <div class="setting-label"><span>hybrid_rrf_search</span></div>
+                <div class="setting-toggle" onclick="toggleSetting('hybrid');renderSettings()">
+                    <div class="toggle-track ${s.hybrid ? 'on' : ''}"></div>
+                    <span class="toggle-label">${s.hybrid ? '[enabled] BM25 + Dense' : '[disabled] Dense Only'}</span>
+                </div>
+                <div class="setting-hint">combine sparse BM25 keyword matching with dense semantic vectors.</div>
+            </div>
+        </div>
+        <div class="settings-section danger-zone">
+            <h3>// data management</h3>
+            <button class="danger-btn" onclick="wipeDatabaseAction(this)">wipe &amp; re-create chromadb collection</button>
+        </div>`;
+}
+
+function wipeDatabaseAction(btn) {
+    if(!confirm('This will permanently delete all documents and chunks. Continue?')) return;
+    btn.textContent = 'wiping...';
+    btn.disabled = true;
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.wipe_database().then(res => {
+            btn.textContent = 'wipe & re-create chromadb collection';
+            btn.disabled = false;
+            if (res.success) {
+                APP.documents=[];
+                APP.nextDocId=1;
+                showToast('database wiped','success');
+                renderDocuments();
+                renderAnalytics();
+                saveState();
+            } else {
+                showToast('Failed to wipe: ' + res.error, 'error');
+            }
+        });
+    } else {
+        APP.documents=[];
+        APP.nextDocId=1;
+        showToast('database wiped','success');
+        renderDocuments();
+        renderAnalytics();
+        saveState();
+        btn.textContent = 'wipe & re-create chromadb collection';
+        btn.disabled = false;
+    }
+}
+
+function updateSetting(key, val) {
+    APP.settings[key] = typeof val === 'string' && !isNaN(val) ? Number(val) : val;
+    saveState();
+}
+
+function toggleSetting(key, btn) {
+    APP.settings[key] = !APP.settings[key];
+    if (btn) btn.classList.toggle('active', APP.settings[key]);
+    saveState();
+}
+
+function reindexAll() {
+    showToast('re-indexing all documents...', 'info');
+    setTimeout(() => showToast('all documents re-indexed', 'success'), 1500);
+}
+
+/* ========================================
+   Command Palette
+   ======================================== */
+const COMMANDS = [
+    { group: 'navigation', label: 'Go to Chat', shortcut: 'Ctrl+1', action: () => switchView('chat') },
+    { group: 'navigation', label: 'Go to Documents', shortcut: 'Ctrl+2', action: () => switchView('documents') },
+    { group: 'navigation', label: 'Go to Analytics', shortcut: 'Ctrl+3', action: () => switchView('analytics') },
+    { group: 'navigation', label: 'Go to Settings', shortcut: 'Ctrl+4', action: () => switchView('settings') },
+    { group: 'chat', label: 'New Conversation', shortcut: 'Ctrl+N', action: () => createConversation() },
+    { group: 'chat', label: 'Clear Current Chat', action: () => clearCurrentChat() },
+    { group: 'documents', label: 'Upload Files', action: () => { switchView('documents'); triggerNativeUpload(); } },
+    { group: 'documents', label: 'Re-Index All Documents', action: () => reindexAll() },
+    { group: 'settings', label: 'Reset Settings to Defaults', action: () => { APP.settings = { chunkSize: 500, chunkOverlap: 50, topK: 10, rerankTopK: 3, reranker: true, hybrid: true, model: 'gemma-3-4b-native' }; renderSettings(); showToast('settings reset', 'success'); saveState(); } },
+    { group: 'settings', label: 'Toggle Reranker', action: () => { APP.settings.reranker = !APP.settings.reranker; showToast(`reranker ${APP.settings.reranker ? 'enabled' : 'disabled'}`, 'info'); saveState(); } },
+    { group: 'settings', label: 'Toggle Hybrid Search', action: () => { APP.settings.hybrid = !APP.settings.hybrid; showToast(`hybrid search ${APP.settings.hybrid ? 'enabled' : 'disabled'}`, 'info'); saveState(); } }
+];
+
+let cmdSelectedIdx = 0;
+let cmdFiltered = [...COMMANDS];
+
+function openCmdPalette() {
+    const overlay = $('#cmd-overlay');
+    overlay.classList.add('active');
+    const input = $('#cmd-input');
+    input.value = '';
+    cmdSelectedIdx = 0;
+    cmdFiltered = [...COMMANDS];
+    renderCmdList();
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeCmdPalette() {
+    $('#cmd-overlay').classList.remove('active');
+}
+
+function renderCmdList() {
+    const list = $('#cmd-list');
+    let html = '';
+    let lastGroup = '';
+    cmdFiltered.forEach((cmd, i) => {
+        if (cmd.group !== lastGroup) { lastGroup = cmd.group; html += `<div class="cmd-group">${cmd.group}</div>`; }
+        html += `<div class="cmd-item ${i === cmdSelectedIdx ? 'selected' : ''}" onclick="executeCmd(${i})" onmouseenter="cmdSelectedIdx=${i};renderCmdList()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <span class="cmd-item-text">${cmd.label}</span>
+            ${cmd.shortcut ? `<span class="cmd-item-shortcut">${cmd.shortcut}</span>` : ''}
+        </div>`;
+    });
+    if (cmdFiltered.length === 0) html = '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.8rem">// no matching commands</div>';
+    list.innerHTML = html;
+}
+
+function executeCmd(idx) {
+    const cmd = cmdFiltered[idx];
+    if (cmd) { closeCmdPalette(); cmd.action(); }
+}
+
+$('#cmd-input').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    cmdFiltered = COMMANDS.filter(c => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q));
+    cmdSelectedIdx = 0;
+    renderCmdList();
+});
+
+$('#cmd-input').addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); cmdSelectedIdx = Math.min(cmdSelectedIdx + 1, cmdFiltered.length - 1); renderCmdList(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); cmdSelectedIdx = Math.max(cmdSelectedIdx - 1, 0); renderCmdList(); }
+    if (e.key === 'Enter') { e.preventDefault(); executeCmd(cmdSelectedIdx); }
+    if (e.key === 'Escape') { closeCmdPalette(); }
+});
+
+$('#cmd-overlay').addEventListener('click', function(e) { if (e.target === this) closeCmdPalette(); });
+
+/* ========================================
+   Keyboard Shortcuts
+   ======================================== */
+document.addEventListener('keydown', e => {
+    // Ctrl+K: Command palette
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); const o = $('#cmd-overlay'); o.classList.contains('active') ? closeCmdPalette() : openCmdPalette(); }
+    // Ctrl+N: New chat
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n' && !e.shiftKey) { e.preventDefault(); createConversation(); switchView('chat'); }
+    // Ctrl+1-4: Switch views
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') { e.preventDefault(); switchView(['chat', 'documents', 'analytics', 'settings'][parseInt(e.key) - 1]); }
+    // Escape: Close overlays
+    if (e.key === 'Escape') {
+        if ($('#cmd-overlay').classList.contains('active')) closeCmdPalette();
+        $('#sidebar').classList.remove('open');
+    }
+});
+
+/* ========================================
+   Auto-resize textarea
+   ======================================== */
+$('#query-input').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+});
+
+/* ========================================
+   Initialization
+   ======================================== */
+function init() {
+    renderSidebarConversations();
+    renderChat();
+    renderDocuments();
+}
+
+init();
+</script>
+</body>
+</html>

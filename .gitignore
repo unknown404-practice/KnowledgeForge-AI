@@ -1,0 +1,51 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Data and Models (DO NOT COMMIT HUGE FILES)
+database/
+.faiss_db/
+models_cache/
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# IDE and Project
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.jupyter/
+.ipynb_checkpoints/
+*.gguf
+
+# Logs
+*.log

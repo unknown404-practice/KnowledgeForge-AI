@@ -1,0 +1,35 @@
+# Version Control
+.git
+.gitignore
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large Model Files and Local Databases
+# We ignore these during build so they don't bloat the image context.
+# They should be mounted as volumes at runtime.
+models_cache/
+.faiss_db/
+database/
+*.gguf
+data/raw/
+data/processed/
+
+# System specific
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
