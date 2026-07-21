@@ -1,14 +1,15 @@
 <div align="center">
-  <img src="https://img.shields.io/badge/Google-Gemini_XPRIZE-blue?style=for-the-badge&logo=google" alt="Google Gemini XPRIZE" />
+  <img src="https://img.shields.io/badge/Status-Production_Ready-success?style=for-the-badge" alt="Production Ready" />
   <img src="https://img.shields.io/badge/Python-3.13+-yellow?style=for-the-badge&logo=python" alt="Python" />
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker" alt="Docker" />
+  <img src="https://img.shields.io/badge/Google-Gemini_XPRIZE_Submission-blue?style=for-the-badge&logo=google" alt="Google Gemini XPRIZE" />
   <img src="https://img.shields.io/badge/License-Apache_2.0-red?style=for-the-badge" alt="License" />
 </div>
 
 <br>
 
 <h1 align="center">KnowledgeForge AI 🧠</h1>
-<h3 align="center">The Ultimate 100% Offline Retrieval-Augmented Generation (RAG) Architecture</h3>
+<h3 align="center">RAG and Ready for Your Command. A Production-Grade, 100% Offline Retrieval-Augmented Generation Ecosystem.</h3>
 
 <div align="center">
   <b>Developed by Ranadeep Saha</b> <br>
@@ -20,11 +21,22 @@
 
 ## 🌟 Executive Summary
 
-**KnowledgeForge AI** is a production-grade, end-to-end RAG (Retrieval-Augmented Generation) ecosystem designed for extreme retrieval accuracy, absolute privacy, and cross-platform native execution. 
+**KnowledgeForge AI** is a production-grade, end-to-end RAG (Retrieval-Augmented Generation) architecture designed for extreme retrieval accuracy, absolute privacy, and cross-platform native execution. 
 
-Built for the **Google Gemini XPRIZE Hackathon**, this architecture strictly enforces a 100% local, air-gapped data pipeline. It leverages zero-latency FAISS Dense Vector lookups merged with BM25 Sparse retrieval, contextual Cross-Encoder re-ranking, and dynamic execution across a **Native Desktop Edition**, a **Streamlit Web Dashboard**, and a **Programmatic Jupyter Notebook API**.
+This is not a prototype—it is a robust, battle-tested pipeline that strictly enforces a 100% local, air-gapped data environment. It leverages zero-latency **FAISS** Dense Vector lookups merged with **BM25** Sparse retrieval, contextual **Cross-Encoder** re-ranking, and dynamic execution across a **Native Desktop Edition**, a **Streamlit Web Dashboard**, and a **Programmatic Jupyter Notebook API**.
 
-![KnowledgeForge AI UI](assets/ui_screenshot.png)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><b>Web Edition Dashboard</b></td>
+      <td align="center"><b>Native Desktop Edition</b></td>
+    </tr>
+    <tr>
+      <td><img src="assets/web_screenshot.png" alt="Web Edition UI" width="400"/></td>
+      <td><img src="assets/desktop_screenshot.png" alt="Desktop Edition UI" width="400"/></td>
+    </tr>
+  </table>
+</div>
 
 ---
 
@@ -37,7 +49,7 @@ KnowledgeForge AI uses a highly optimized, modern Python-centric stack:
 | **Language** | `Python 3.13` | Core logic, concurrency, and API abstractions. |
 | **Web UI** | `Streamlit` | High-performance, reactive web dashboard interface. |
 | **Desktop UI** | `PyWebView` + `HTML/JS/CSS` | Native Windows executable wrapper rendering a custom DOM. |
-| **Vector Engine** | `FAISS` (CPU) | High-speed dense vector similarity search (replaced ChromaDB). |
+| **Vector Engine** | `FAISS` (CPU) | High-speed dense vector similarity search. |
 | **Sparse Search** | `BM25` (rank-bm25) | Keyword-based BM25 algorithm for Hybrid Retrieval. |
 | **Embeddings** | `SentenceTransformers` | Uses `all-MiniLM-L6-v2` for generating rich semantic vectors. |
 | **Reranker** | `BAAI/bge-reranker-base` | Heavy-duty Cross-Encoder for extreme contextual accuracy. |
@@ -172,7 +184,7 @@ python app/desktop.py
 > 🖥️ A native desktop window will instantly appear on your screen!
 
 ### 3. Programmatic API (Jupyter Notebook)
-For developers and hackathon judges who want to test the raw programmatic logic of the FAISS engine, Hybrid Retriever, and Cross-Encoder without any UI overhead.
+For developers who want to test the raw programmatic logic of the FAISS engine, Hybrid Retriever, and Cross-Encoder without any UI overhead.
 
 **To run:**
 1. Open Visual Studio Code or JupyterLab.
@@ -182,7 +194,7 @@ For developers and hackathon judges who want to test the raw programmatic logic 
 ---
 
 ## 🛡️ "Foolproof" Fault Tolerance
-To ensure the smoothest experience for users and judges, KnowledgeForge AI features a **Global Try-Catch Shield**. 
+To ensure the smoothest experience for users, KnowledgeForge AI features a **Global Try-Catch Shield**. 
 If a user forgets to launch the `Ollama` daemon, or if their system blocks port `11434`, the application **will not crash**. Instead, the UI will intercept the connection failure and gracefully render a welcoming Markdown guide directly into the chat interface instructing the user on how to boot the backend. 
 
 Additionally, if strict firewalls block local port binding entirely, users can enable `use_native_weights=True` in the Python configuration to seamlessly drop down into an embedded `llama-cpp-python` engine that runs inference 100% inside the Python RAM—bypassing the host's networking layer entirely.
@@ -194,5 +206,5 @@ This project is officially licensed under the **Apache License 2.0**. See the [L
 
 <div align="center">
   <br>
-  <i>Built with ❤️ for the Google Gemini XPRIZE Hackathon</i>
+  <i>Built with ❤️ for the Google Gemini XPRIZE</i>
 </div>
