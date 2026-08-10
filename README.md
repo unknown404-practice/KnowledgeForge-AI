@@ -181,7 +181,7 @@ For an instant, single-command launch that forcefully boots the Ollama backend a
 ```powershell
 Start-Process -NoNewWindow -FilePath "ollama" -ArgumentList "serve" ; python app/desktop.py
 ```
-> 🖥️ A native desktop window will instantly appear on your screen with the backend fully initialized!
+> 🖥️ The Native Desktop App will instantly open and forcefully start all backend servers at a single time!
 
 ### 3. Programmatic API (Jupyter Notebook)
 For developers who want to test the raw programmatic logic of the FAISS engine, Hybrid Retriever, and Cross-Encoder without any UI overhead.
