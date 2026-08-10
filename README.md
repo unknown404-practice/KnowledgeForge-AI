@@ -176,12 +176,12 @@ python -m streamlit run app/main.py
 ### 2. Native Desktop Edition (PyWebView)
 The Desktop Edition mounts a custom HTML/CSS/JS frontend onto a standalone OS window, piping requests natively into the Python backend without requiring a browser.
 
-**To run:**
-Simply double-click the `Open_in_Desktop_App.bat` file in the project root, or execute:
-```bash
-python app/desktop.py
+**To run (The "God Mode" Command):**
+For an instant, single-command launch that forcefully boots the Ollama backend and simultaneously opens the Native Desktop UI, navigate to the project folder and paste this into your PowerShell terminal:
+```powershell
+Start-Process -NoNewWindow -FilePath "ollama" -ArgumentList "serve" ; python app/desktop.py
 ```
-> 🖥️ A native desktop window will instantly appear on your screen!
+> 🖥️ A native desktop window will instantly appear on your screen with the backend fully initialized!
 
 ### 3. Programmatic API (Jupyter Notebook)
 For developers who want to test the raw programmatic logic of the FAISS engine, Hybrid Retriever, and Cross-Encoder without any UI overhead.
