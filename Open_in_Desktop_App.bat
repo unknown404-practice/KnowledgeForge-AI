@@ -5,6 +5,8 @@ echo =========================================================================
 cd /d "%~dp0"
 
 set "PYTHON_EXE=python"
+echo Starting Ollama Backend...
+start /B ollama serve >nul 2>&1
 if exist "%APPDATA%\jupyterlab-desktop\jlab_server\python.exe" (
     set "PYTHON_EXE=%APPDATA%\jupyterlab-desktop\jlab_server\python.exe"
 )
